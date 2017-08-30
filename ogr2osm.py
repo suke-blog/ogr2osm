@@ -156,6 +156,9 @@ parser.add_option("--add-timestamp", dest="addTimestamp", action="store_true",
 parser.add_option("--sql", dest="sqlQuery", type=str, default=None,
                      help="SQL query to execute on a PostgreSQL source")
 
+parser.add_option("--sequential-output", dest="sequentialOutput", action="store_true",
+                  help="Output osm file sequentially.")
+
 parser.set_defaults(sourceEPSG=None, sourcePROJ4=None, verbose=False,
                     debugTags=False,
                     translationMethod=None, outputFile=None,
