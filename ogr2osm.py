@@ -440,22 +440,7 @@ def parseFeature(ogrfeature, fieldNames, reproject, files=[]):
         translations.filterFeaturePost(feature, ogrfeature, ogrgeometry)
 
     if options.sequentialOutput == True:
-        mergePoints()
-        mergeWayPoints()
-        if options.maxNodesPerWay >= 2:
-            splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
-        translations.preOutputTransform(Geometry.geometries, Feature.features)
-        nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
-        ways = [geom for geom in Geometry.geometries if type(geom) == Way]
-        relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
-        featuresmap = {feature.geometry: feature for feature in Feature.features}
-
-        attributes = getAttributes()
-        outputNodes(nodes, featuresmap, attributes, files[0])
-        outputWays(ways, featuresmap, attributes, files[1])
-        outputRelations(relations, featuresmap, attributes, files[2])
-
-        clearMemoryResources()
+        outputSequential(files)
 
 
 def parseGeometry(ogrgeometries):
@@ -765,6 +750,26 @@ def output():
         outputRelations(relations, featuresmap, attributes, f)
 
         outputFooter(f)
+
+
+def outputSequential(files):
+    mergePoints()
+    mergeWayPoints()
+    if options.maxNodesPerWay >= 2:
+        splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
+    translations.preOutputTransform(Geometry.geometries, Feature.features)
+
+    nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
+    ways = [geom for geom in Geometry.geometries if type(geom) == Way]
+    relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
+    featuresmap = {feature.geometry: feature for feature in Feature.features}
+
+    attributes = getAttributes()
+    outputNodes(nodes, featuresmap, attributes, files[0])
+    outputWays(ways, featuresmap, attributes, files[1])
+    outputRelations(relations, featuresmap, attributes, files[2])
+
+    clearMemoryResources()
 
 
 def clearMemoryResources():
