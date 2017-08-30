@@ -633,6 +633,84 @@ def splitWayInRelation(rel, way_parts):
     for way in way_parts[1:]:
         rel.members.append((way, way_role))
 
+
+def outputHeader(f):
+    if options.noUploadFalse:
+        f.write('<?xml version="1.0"?>\n<osm version="0.6" generator="uvmogr2osm">\n')
+    else:
+        f.write('<?xml version="1.0"?>\n<osm version="0.6" upload="false" generator="uvmogr2osm">\n')
+
+
+def outputFooter(f):
+    f.write('</osm>')
+
+
+def outputNodes(nodes, featuresmap, attributes, f):
+    for node in nodes:
+        xmlattrs = {'visible': 'true', 'id': str(node.id), 'lat': str(node.y * 10 ** -options.significantDigits),
+                    'lon': str(node.x * 10 ** -options.significantDigits)}
+        xmlattrs.update(attributes)
+
+        xmlobject = etree.Element('node', xmlattrs)
+
+        if node in featuresmap:
+            for (key, value) in featuresmap[node].tags.items():
+                tag = etree.Element('tag', {'k': key, 'v': value})
+                xmlobject.append(tag)
+        if IS_PYTHON2:
+            f.write(etree.tostring(xmlobject))
+        else:
+            f.write(etree.tostring(xmlobject, encoding='unicode'))
+        f.write('\n')
+
+
+def outputWays(ways, featuresmap, attributes, f):
+    for way in ways:
+        xmlattrs = {'visible': 'true', 'id': str(way.id)}
+        xmlattrs.update(attributes)
+
+        xmlobject = etree.Element('way', xmlattrs)
+
+        for node in way.points:
+            nd = etree.Element('nd', {'ref': str(node.id)})
+            xmlobject.append(nd)
+        if way in featuresmap:
+            for (key, value) in featuresmap[way].tags.items():
+                tag = etree.Element('tag', {'k': key, 'v': value})
+                xmlobject.append(tag)
+
+        if IS_PYTHON2:
+            f.write(etree.tostring(xmlobject))
+        else:
+            f.write(etree.tostring(xmlobject, encoding='unicode'))
+        f.write('\n')
+
+
+def outputRelations(relations, featuresmap, attributes, f):
+    for relation in relations:
+        xmlattrs = {'visible': 'true', 'id': str(relation.id)}
+        xmlattrs.update(attributes)
+
+        xmlobject = etree.Element('relation', xmlattrs)
+
+        for (member, role) in relation.members:
+            member = etree.Element('member', {'type': 'way', 'ref': str(member.id), 'role': role})
+            xmlobject.append(member)
+
+        tag = etree.Element('tag', {'k': 'type', 'v': 'multipolygon'})
+        xmlobject.append(tag)
+        if relation in featuresmap:
+            for (key, value) in featuresmap[relation].tags.items():
+                tag = etree.Element('tag', {'k': key, 'v': value})
+                xmlobject.append(tag)
+
+        if IS_PYTHON2:
+            f.write(etree.tostring(xmlobject))
+        else:
+            f.write(etree.tostring(xmlobject, encoding='unicode'))
+        f.write('\n')
+
+
 def output():
     l.debug("Outputting XML")
     # First, set up a few data structures for optimization purposes
@@ -644,10 +722,7 @@ def output():
     # Open up the output file with the system default buffering
     with open(options.outputFile, 'w', buffering=-1) as f:
 
-        if options.noUploadFalse:
-            f.write('<?xml version="1.0"?>\n<osm version="0.6" generator="uvmogr2osm">\n')
-        else:
-            f.write('<?xml version="1.0"?>\n<osm version="0.6" upload="false" generator="uvmogr2osm">\n')
+        outputHeader(f)
 
         # Build up a dict for optional settings
         attributes = {}
@@ -657,66 +732,11 @@ def output():
         if options.addTimestamp:
             attributes.update({'timestamp':datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')})
 
-        for node in nodes:
-            xmlattrs = {'visible':'true','id':str(node.id), 'lat':str(node.y*10**-options.significantDigits), 'lon':str(node.x*10**-options.significantDigits)}
-            xmlattrs.update(attributes)
+        outputNodes(nodes, featuresmap, attributes, f)
+        outputWays(ways, featuresmap, attributes, f)
+        outputRelations(relations, featuresmap, attributes, f)
 
-            xmlobject = etree.Element('node', xmlattrs)
-
-            if node in featuresmap:
-                for (key, value) in featuresmap[node].tags.items():
-                    tag = etree.Element('tag', {'k':key, 'v':value})
-                    xmlobject.append(tag)
-            if IS_PYTHON2:
-                f.write(etree.tostring(xmlobject))
-            else:
-                f.write(etree.tostring(xmlobject, encoding='unicode'))
-            f.write('\n')
-
-        for way in ways:
-            xmlattrs = {'visible':'true', 'id':str(way.id)}
-            xmlattrs.update(attributes)
-
-            xmlobject = etree.Element('way', xmlattrs)
-
-            for node in way.points:
-                nd = etree.Element('nd',{'ref':str(node.id)})
-                xmlobject.append(nd)
-            if way in featuresmap:
-                for (key, value) in featuresmap[way].tags.items():
-                    tag = etree.Element('tag', {'k':key, 'v':value})
-                    xmlobject.append(tag)
-
-            if IS_PYTHON2:
-                f.write(etree.tostring(xmlobject))
-            else:
-                f.write(etree.tostring(xmlobject, encoding='unicode'))
-            f.write('\n')
-
-        for relation in relations:
-            xmlattrs = {'visible':'true', 'id':str(relation.id)}
-            xmlattrs.update(attributes)
-
-            xmlobject = etree.Element('relation', xmlattrs)
-
-            for (member, role) in relation.members:
-                member = etree.Element('member', {'type':'way', 'ref':str(member.id), 'role':role})
-                xmlobject.append(member)
-
-            tag = etree.Element('tag', {'k':'type', 'v':'multipolygon'})
-            xmlobject.append(tag)
-            if relation in featuresmap:
-                for (key, value) in featuresmap[relation].tags.items():
-                    tag = etree.Element('tag', {'k':key, 'v':value})
-                    xmlobject.append(tag)
-
-            if IS_PYTHON2:
-                f.write(etree.tostring(xmlobject))
-            else:
-                f.write(etree.tostring(xmlobject, encoding='unicode'))
-            f.write('\n')
-
-        f.write('</osm>')
+        outputFooter(f)
 
 
 # Main flow
