@@ -162,7 +162,8 @@ parser.add_option("--sequential-output", dest="sequentialOutput", action="store_
 parser.set_defaults(sourceEPSG=None, sourcePROJ4=None, verbose=False,
                     debugTags=False,
                     translationMethod=None, outputFile=None,
-                    forceOverwrite=False, noUploadFalse=False)
+                    forceOverwrite=False, noUploadFalse=False,
+                    sequentialOutput=False)
 
 # Parse and process arguments
 (options, args) = parser.parse_args()
@@ -324,7 +325,7 @@ def getFileData(filename):
         memoryDataSource = ogr.GetDriverByName('Memory').CopyDataSource(fileDataSource,'memoryCopy')
         return memoryDataSource
 
-def parseData(dataSource):
+def parseData(dataSource, files=[]):
     l.debug("Parsing data")
     global translations
     if options.sqlQuery:
@@ -335,7 +336,7 @@ def parseData(dataSource):
         for i in range(dataSource.GetLayerCount()):
             layer = dataSource.GetLayer(i)
             layer.ResetReading()
-            parseLayer(translations.filterLayer(layer))
+            parseLayer(translations.filterLayer(layer), files)
 
 def getTransform(layer):
     global options
@@ -391,7 +392,7 @@ def getFeatureTags(ogrfeature, fieldNames):
             tags[fieldNames[i]] = ogrfeature.GetFieldAsString(i).strip()
     return translations.filterTags(tags)
 
-def parseLayer(layer):
+def parseLayer(layer,files=[]):
     if layer is None:
         return
     fieldNames = getLayerFields(layer)
@@ -399,9 +400,9 @@ def parseLayer(layer):
 
     for j in range(layer.GetFeatureCount()):
         ogrfeature = layer.GetNextFeature()
-        parseFeature(translations.filterFeature(ogrfeature, fieldNames, reproject), fieldNames, reproject)
+        parseFeature(translations.filterFeature(ogrfeature, fieldNames, reproject), fieldNames, reproject, files)
 
-def parseFeature(ogrfeature, fieldNames, reproject):
+def parseFeature(ogrfeature, fieldNames, reproject, files=[]):
     if ogrfeature is None:
         return
 
@@ -421,6 +422,30 @@ def parseFeature(ogrfeature, fieldNames, reproject):
         geometry.addparent(feature)
 
         translations.filterFeaturePost(feature, ogrfeature, ogrgeometry)
+
+    if options.sequentialOutput == True:
+        mergePoints()
+        mergeWayPoints()
+        if options.maxNodesPerWay >= 2:
+            splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
+        translations.preOutputTransform(Geometry.geometries, Feature.features)
+        nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
+        ways = [geom for geom in Geometry.geometries if type(geom) == Way]
+        relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
+        featuresmap = {feature.geometry: feature for feature in Feature.features}
+
+        # Build up a dict for optional settings
+        attributes = {}
+        if options.addVersion:
+            attributes.update({'version':'1'})
+        if options.addTimestamp:
+            attributes.update({'timestamp':datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')})
+
+        outputNodes(nodes, featuresmap, attributes, files[0])
+        outputWays(ways, featuresmap, attributes, files[1])
+        outputRelations(relations, featuresmap, attributes, files[2])
+
+        clearMemoryResources()
 
 
 def parseGeometry(ogrgeometries):
@@ -739,16 +764,36 @@ def output():
         outputFooter(f)
 
 
+def clearMemoryResources():
+    global longWaysFromPolygons
+    global linestring_points
+    longWaysFromPolygons.clear()
+    linestring_points.clear()
+    del Feature.features[:]
+    del Geometry.geometries[:]
+
+
 # Main flow
 data = openData(source)
 longWaysFromPolygons = set()
-parseData(data)
-mergePoints()
-mergeWayPoints()
-if options.maxNodesPerWay >= 2:
-    splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
-translations.preOutputTransform(Geometry.geometries, Feature.features)
-output()
+if options.sequentialOutput == False:
+    parseData(data)
+    mergePoints()
+    mergeWayPoints()
+    if options.maxNodesPerWay >= 2:
+        splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
+    translations.preOutputTransform(Geometry.geometries, Feature.features)
+    output()
+else:
+    #seaquential output
+    with open(options.outputFile + '_nodes', 'w') as nodesFile,\
+            open(options.outputFile + '_ways', 'w') as waysFile,\
+            open(options.outputFile + '_relations', 'w') as relationsFile:
+        files = [nodesFile, waysFile, relationsFile]
+        outputHeader(nodesFile)
+        parseData(data, files)
+        outputFooter(relationsFile)
+
 if options.saveid:
     with open(options.saveid, 'wb') as ff:
         ff.write(str(Geometry.elementIdCounter))
