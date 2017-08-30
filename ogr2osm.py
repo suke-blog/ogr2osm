@@ -159,11 +159,14 @@ parser.add_option("--sql", dest="sqlQuery", type=str, default=None,
 parser.add_option("--sequential-output", dest="sequentialOutput", action="store_true",
                   help="Output osm file sequentially.")
 
+parser.add_option("--pbf", dest="pbfMode", action="store_true",
+                  help="Output pbf format(binary).")
+
 parser.set_defaults(sourceEPSG=None, sourcePROJ4=None, verbose=False,
                     debugTags=False,
                     translationMethod=None, outputFile=None,
                     forceOverwrite=False, noUploadFalse=False,
-                    sequentialOutput=False)
+                    sequentialOutput=False, pbfMode=False)
 
 # Parse and process arguments
 (options, args) = parser.parse_args()
