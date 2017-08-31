@@ -131,6 +131,9 @@ parser.add_option("--no-upload-false", dest="noUploadFalse", action="store_true"
 parser.add_option("--id", dest="id", type=int, default=0,
                     help="ID to start counting from for the output file. Defaults to 0.")
 
+parser.add_option("--separate-id", dest="separateIDMode", action="store_true",
+                  help="NodeID,WayID,RelationID is starting from different value. Require --idfile option to set each value.")
+
 parser.add_option("--idfile", dest="idfile", type=str, default=None,
                     help="Read ID to start counting from from a file.")
 
@@ -163,7 +166,8 @@ parser.set_defaults(sourceEPSG=None, sourcePROJ4=None, verbose=False,
                     debugTags=False,
                     translationMethod=None, outputFile=None,
                     forceOverwrite=False, noUploadFalse=False,
-                    sequentialOutput=False)
+                    sequentialOutput=False,
+                    separateIDMode=False)
 
 # Parse and process arguments
 (options, args) = parser.parse_args()
@@ -267,9 +271,16 @@ for (k, v) in default_translations:
 Geometry.elementIdCounter = options.id
 if options.idfile:
     with open(options.idfile, 'r') as ff:
-        Geometry.elementIdCounter = int(ff.readline(20))
-    l.info("Starting counter value '%d' read from file '%s'." \
-        % (Geometry.elementIdCounter, options.idfile))
+        if options.separateIDMode:
+            Point.idCounter = int(ff.readline(20))
+            Way.idCounter = int(ff.readline(20))
+            Relation.idCounter = int(ff.readline(20))
+            l.info("Starting counter value Point:%d, Way:%d, Relation:%d read from file '%s'."\
+                   % (Point.idCounter, Way.idCounter, Relation.idCounter, options.idfile))
+        else:
+            Geometry.elementIdCounter = int(ff.readline(20))
+            l.info("Starting counter value '%d' read from file '%s'." \
+                % (Geometry.elementIdCounter, options.idfile))
 
 if options.positiveID:
     Geometry.elementIdCounterIncr = 1 # default is -1
@@ -804,6 +815,13 @@ else:
 
 if options.saveid:
     with open(options.saveid, 'wb') as ff:
-        ff.write(str(Geometry.elementIdCounter))
-    l.info("Wrote elementIdCounter '%d' to file '%s'"
-        % (Geometry.elementIdCounter, options.saveid))
+        if options.separateIDMode:
+            ff.write(str(Point.idCounter)+'\n')
+            ff.write(str(Way.idCounter)+'\n')
+            ff.write(str(Relation.idCounter)+'\n')
+            l.info("Wrote IdCounter Point:%d, Way:%d, Relation:%d to file '%s'"
+                   % (Point.idCounter, Way.idCounter, Relation.idCounter, options.saveid))
+        else:
+            ff.write(str(Geometry.elementIdCounter))
+            l.info("Wrote elementIdCounter '%d' to file '%s'"
+                % (Geometry.elementIdCounter, options.saveid))
