@@ -131,6 +131,9 @@ parser.add_option("--no-upload-false", dest="noUploadFalse", action="store_true"
 parser.add_option("--id", dest="id", type=int, default=0,
                     help="ID to start counting from for the output file. Defaults to 0.")
 
+parser.add_option("--separate-id", dest="separateIDMode", action="store_true",
+                  help="NodeID,WayID,RelationID is starting from different value. Require --idfile option to set each value.")
+
 parser.add_option("--idfile", dest="idfile", type=str, default=None,
                     help="Read ID to start counting from from a file.")
 
@@ -163,7 +166,8 @@ parser.set_defaults(sourceEPSG=None, sourcePROJ4=None, verbose=False,
                     debugTags=False,
                     translationMethod=None, outputFile=None,
                     forceOverwrite=False, noUploadFalse=False,
-                    sequentialOutput=False)
+                    sequentialOutput=False,
+                    separateIDMode=False)
 
 # Parse and process arguments
 (options, args) = parser.parse_args()
