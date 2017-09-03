@@ -801,6 +801,16 @@ else:
         outputHeader(nodesFile)
         parseData(data, files)
         outputFooter(relationsFile)
+    l.debug('Joint osm file.')
+    os.rename(options.outputFile + '_nodes', options.outputFile)
+    with open(options.outputFile, 'ab') as osmFile,\
+        open(options.outputFile + '_ways', 'rb') as waysFile,\
+        open(options.outputFile + '_relations', 'rb') as relationsFile:
+        osmFile.write(waysFile.read())
+        osmFile.write(relationsFile.read())
+    l.debug('Remove temporary files.')
+    os.remove(options.outputFile + '_ways')
+    os.remove(options.outputFile + '_relations')
 
 if options.saveid:
     with open(options.saveid, 'wb') as ff:
