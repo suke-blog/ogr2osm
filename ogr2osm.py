@@ -52,6 +52,7 @@ l.basicConfig(level=l.DEBUG, format="%(message)s")
 from osgeo import ogr
 from osgeo import osr
 from geom import *
+from osmxml import *
 
 # Determine major Python version is 2 or 3
 IS_PYTHON2 = sys.version_info < (3, 0)
@@ -337,22 +338,7 @@ def getFileData(filename):
         return memoryDataSource
 
 
-osm_attributes = {}
-def getAttributes():
-    global osm_attributes
-
-    if len(osm_attributes) == 0:
-        # Build up a dict for optional settings
-        if options.addVersion:
-            osm_attributes.update({'version':'1'})
-
-        if options.addTimestamp:
-            osm_attributes.update({'timestamp':datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')})
-
-    return osm_attributes
-
-
-def parseData(dataSource, files=[]):
+def parseData(dataSource, osm=None):
     l.debug("Parsing data")
     global translations
     if options.sqlQuery:
@@ -363,7 +349,7 @@ def parseData(dataSource, files=[]):
         for i in range(dataSource.GetLayerCount()):
             layer = dataSource.GetLayer(i)
             layer.ResetReading()
-            parseLayer(translations.filterLayer(layer), files)
+            parseLayer(translations.filterLayer(layer), osm)
 
 def getTransform(layer):
     global options
@@ -419,7 +405,7 @@ def getFeatureTags(ogrfeature, fieldNames):
             tags[fieldNames[i]] = ogrfeature.GetFieldAsString(i).strip()
     return translations.filterTags(tags)
 
-def parseLayer(layer,files=[]):
+def parseLayer(layer,osm=None):
     if layer is None:
         return
     fieldNames = getLayerFields(layer)
@@ -427,9 +413,9 @@ def parseLayer(layer,files=[]):
 
     for j in range(layer.GetFeatureCount()):
         ogrfeature = layer.GetNextFeature()
-        parseFeature(translations.filterFeature(ogrfeature, fieldNames, reproject), fieldNames, reproject, files)
+        parseFeature(translations.filterFeature(ogrfeature, fieldNames, reproject), fieldNames, reproject, osm)
 
-def parseFeature(ogrfeature, fieldNames, reproject, files=[]):
+def parseFeature(ogrfeature, fieldNames, reproject, osm=None):
     if ogrfeature is None:
         return
 
@@ -450,8 +436,9 @@ def parseFeature(ogrfeature, fieldNames, reproject, files=[]):
 
         translations.filterFeaturePost(feature, ogrfeature, ogrgeometry)
 
-    if options.sequentialOutput == True:
-        outputSequential(files)
+    if options.sequentialOutput:
+        output(osm)
+        clearMemoryResources()
 
 
 def parseGeometry(ogrgeometries):
@@ -665,122 +652,16 @@ def splitWayInRelation(rel, way_parts):
         rel.members.append((way, way_role))
 
 
-def outputHeader(f):
-    if options.noUploadFalse:
-        f.write('<?xml version="1.0"?>\n<osm version="0.6" generator="uvmogr2osm">\n')
-    else:
-        f.write('<?xml version="1.0"?>\n<osm version="0.6" upload="false" generator="uvmogr2osm">\n')
-
-
-def outputFooter(f):
-    f.write('</osm>')
-
-
-def outputNodes(nodes, featuresmap, attributes, f):
-    for node in nodes:
-        xmlattrs = {'visible': 'true', 'id': str(node.id), 'lat': str(node.y * 10 ** -options.significantDigits),
-                    'lon': str(node.x * 10 ** -options.significantDigits)}
-        xmlattrs.update(attributes)
-
-        xmlobject = etree.Element('node', xmlattrs)
-
-        if node in featuresmap:
-            for (key, value) in featuresmap[node].tags.items():
-                tag = etree.Element('tag', {'k': key, 'v': value})
-                xmlobject.append(tag)
-        if IS_PYTHON2:
-            f.write(etree.tostring(xmlobject))
-        else:
-            f.write(etree.tostring(xmlobject, encoding='unicode'))
-        f.write('\n')
-
-
-def outputWays(ways, featuresmap, attributes, f):
-    for way in ways:
-        xmlattrs = {'visible': 'true', 'id': str(way.id)}
-        xmlattrs.update(attributes)
-
-        xmlobject = etree.Element('way', xmlattrs)
-
-        for node in way.points:
-            nd = etree.Element('nd', {'ref': str(node.id)})
-            xmlobject.append(nd)
-        if way in featuresmap:
-            for (key, value) in featuresmap[way].tags.items():
-                tag = etree.Element('tag', {'k': key, 'v': value})
-                xmlobject.append(tag)
-
-        if IS_PYTHON2:
-            f.write(etree.tostring(xmlobject))
-        else:
-            f.write(etree.tostring(xmlobject, encoding='unicode'))
-        f.write('\n')
-
-
-def outputRelations(relations, featuresmap, attributes, f):
-    for relation in relations:
-        xmlattrs = {'visible': 'true', 'id': str(relation.id)}
-        xmlattrs.update(attributes)
-
-        xmlobject = etree.Element('relation', xmlattrs)
-
-        for (member, role) in relation.members:
-            member = etree.Element('member', {'type': 'way', 'ref': str(member.id), 'role': role})
-            xmlobject.append(member)
-
-        tag = etree.Element('tag', {'k': 'type', 'v': 'multipolygon'})
-        xmlobject.append(tag)
-        if relation in featuresmap:
-            for (key, value) in featuresmap[relation].tags.items():
-                tag = etree.Element('tag', {'k': key, 'v': value})
-                xmlobject.append(tag)
-
-        if IS_PYTHON2:
-            f.write(etree.tostring(xmlobject))
-        else:
-            f.write(etree.tostring(xmlobject, encoding='unicode'))
-        f.write('\n')
-
-
-def output():
+def output(osm):
     l.debug("Outputting XML")
-    # First, set up a few data structures for optimization purposes
-    nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
-    ways = [geom for geom in Geometry.geometries if type(geom) == Way]
-    relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
-    featuresmap = {feature.geometry : feature for feature in Feature.features}
-
-    # Open up the output file with the system default buffering
-    with open(options.outputFile, 'w', buffering=-1) as f:
-
-        outputHeader(f)
-
-        attributes = getAttributes()
-        outputNodes(nodes, featuresmap, attributes, f)
-        outputWays(ways, featuresmap, attributes, f)
-        outputRelations(relations, featuresmap, attributes, f)
-
-        outputFooter(f)
-
-
-def outputSequential(files):
     mergePoints()
     mergeWayPoints()
     if options.maxNodesPerWay >= 2:
         splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
+
     translations.preOutputTransform(Geometry.geometries, Feature.features)
 
-    nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
-    ways = [geom for geom in Geometry.geometries if type(geom) == Way]
-    relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
-    featuresmap = {feature.geometry: feature for feature in Feature.features}
-
-    attributes = getAttributes()
-    outputNodes(nodes, featuresmap, attributes, files[0])
-    outputWays(ways, featuresmap, attributes, files[1])
-    outputRelations(relations, featuresmap, attributes, files[2])
-
-    clearMemoryResources()
+    osm.output(Geometry.geometries, Feature.features)
 
 
 def clearMemoryResources():
@@ -795,33 +676,16 @@ def clearMemoryResources():
 # Main flow
 data = openData(source)
 longWaysFromPolygons = set()
-if options.sequentialOutput == False:
-    parseData(data)
-    mergePoints()
-    mergeWayPoints()
-    if options.maxNodesPerWay >= 2:
-        splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
-    translations.preOutputTransform(Geometry.geometries, Feature.features)
-    output()
-else:
-    #seaquential output
-    with open(options.outputFile + '_nodes', 'w') as nodesFile,\
-            open(options.outputFile + '_ways', 'w') as waysFile,\
-            open(options.outputFile + '_relations', 'w') as relationsFile:
-        files = [nodesFile, waysFile, relationsFile]
-        outputHeader(nodesFile)
-        parseData(data, files)
-        outputFooter(relationsFile)
-    l.debug('Joint osm file.')
-    os.rename(options.outputFile + '_nodes', options.outputFile)
-    with open(options.outputFile, 'ab') as osmFile,\
-        open(options.outputFile + '_ways', 'rb') as waysFile,\
-        open(options.outputFile + '_relations', 'rb') as relationsFile:
-        osmFile.write(waysFile.read())
-        osmFile.write(relationsFile.read())
-    l.debug('Remove temporary files.')
-    os.remove(options.outputFile + '_ways')
-    os.remove(options.outputFile + '_relations')
+osm = Osmxml(filename=options.outputFile,\
+             sequentialOutputMode=options.sequentialOutput,\
+             noUploadFalse=options.noUploadFalse,\
+             osmVersion=options.addVersion,\
+             timestamp=options.addTimestamp,\
+             significantDigits=options.significantDigits,\
+             roundingDigits=options.roundingDigits)
+parseData(data, osm)
+output(osm)
+osm.finish()
 
 if options.saveid:
     with open(options.saveid, 'wb') as ff:
