@@ -451,8 +451,9 @@ def parseFeature(ogrfeature, fieldNames, reproject, osm=None):
 
         translations.filterFeaturePost(feature, ogrfeature, ogrgeometry)
 
-    if options.sequentialOutput == True:
-        outputSequential(osm)
+    if options.sequentialOutput:
+        output(osm)
+        clearMemoryResources()
 
 
 def parseGeometry(ogrgeometries):
@@ -678,18 +679,6 @@ def output(osm):
     osm.output(Geometry.geometries, Feature.features)
 
 
-def outputSequential(osm):
-    mergePoints()
-    mergeWayPoints()
-    if options.maxNodesPerWay >= 2:
-        splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
-    translations.preOutputTransform(Geometry.geometries, Feature.features)
-
-    osm.output(Geometry.geometries, Feature.features)
-
-    clearMemoryResources()
-
-
 def clearMemoryResources():
     global longWaysFromPolygons
     global linestring_points
@@ -709,14 +698,9 @@ osm = Osmxml(filename=options.outputFile,\
              timestamp=options.addTimestamp,\
              significantDigits=options.significantDigits,\
              roundingDigits=options.roundingDigits)
-if options.sequentialOutput == False:
-    parseData(data)
-    output(osm)
-else:
-    #seaquential output
-    parseData(data, osm)
+parseData(data, osm)
+output(osm)
 osm.finish()
-
 
 if options.saveid:
     with open(options.saveid, 'wb') as ff:
