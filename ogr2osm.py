@@ -666,102 +666,8 @@ def splitWayInRelation(rel, way_parts):
         rel.members.append((way, way_role))
 
 
-def outputHeader(f):
-    if options.noUploadFalse:
-        f.write('<?xml version="1.0"?>\n<osm version="0.6" generator="uvmogr2osm">\n')
-    else:
-        f.write('<?xml version="1.0"?>\n<osm version="0.6" upload="false" generator="uvmogr2osm">\n')
-
-
-def outputFooter(f):
-    f.write('</osm>')
-
-
-def outputNodes(nodes, featuresmap, attributes, f):
-    for node in nodes:
-        xmlattrs = {'visible': 'true', 'id': str(node.id), 'lat': str(node.y * 10 ** -options.significantDigits),
-                    'lon': str(node.x * 10 ** -options.significantDigits)}
-        xmlattrs.update(attributes)
-
-        xmlobject = etree.Element('node', xmlattrs)
-
-        if node in featuresmap:
-            for (key, value) in featuresmap[node].tags.items():
-                tag = etree.Element('tag', {'k': key, 'v': value})
-                xmlobject.append(tag)
-        if IS_PYTHON2:
-            f.write(etree.tostring(xmlobject))
-        else:
-            f.write(etree.tostring(xmlobject, encoding='unicode'))
-        f.write('\n')
-
-
-def outputWays(ways, featuresmap, attributes, f):
-    for way in ways:
-        xmlattrs = {'visible': 'true', 'id': str(way.id)}
-        xmlattrs.update(attributes)
-
-        xmlobject = etree.Element('way', xmlattrs)
-
-        for node in way.points:
-            nd = etree.Element('nd', {'ref': str(node.id)})
-            xmlobject.append(nd)
-        if way in featuresmap:
-            for (key, value) in featuresmap[way].tags.items():
-                tag = etree.Element('tag', {'k': key, 'v': value})
-                xmlobject.append(tag)
-
-        if IS_PYTHON2:
-            f.write(etree.tostring(xmlobject))
-        else:
-            f.write(etree.tostring(xmlobject, encoding='unicode'))
-        f.write('\n')
-
-
-def outputRelations(relations, featuresmap, attributes, f):
-    for relation in relations:
-        xmlattrs = {'visible': 'true', 'id': str(relation.id)}
-        xmlattrs.update(attributes)
-
-        xmlobject = etree.Element('relation', xmlattrs)
-
-        for (member, role) in relation.members:
-            member = etree.Element('member', {'type': 'way', 'ref': str(member.id), 'role': role})
-            xmlobject.append(member)
-
-        tag = etree.Element('tag', {'k': 'type', 'v': 'multipolygon'})
-        xmlobject.append(tag)
-        if relation in featuresmap:
-            for (key, value) in featuresmap[relation].tags.items():
-                tag = etree.Element('tag', {'k': key, 'v': value})
-                xmlobject.append(tag)
-
-        if IS_PYTHON2:
-            f.write(etree.tostring(xmlobject))
-        else:
-            f.write(etree.tostring(xmlobject, encoding='unicode'))
-        f.write('\n')
-
-
 def output(osm):
     l.debug("Outputting XML")
-    # First, set up a few data structures for optimization purposes
-    #nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
-    #ways = [geom for geom in Geometry.geometries if type(geom) == Way]
-    #relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
-    #featuresmap = {feature.geometry : feature for feature in Feature.features}
-    #
-    # Open up the output file with the system default buffering
-    #with open(options.outputFile, 'w', buffering=-1) as f:
-    #
-    #    outputHeader(f)
-    #
-    #    attributes = getAttributes()
-    #    outputNodes(nodes, featuresmap, attributes, f)
-    #    outputWays(ways, featuresmap, attributes, f)
-    #    outputRelations(relations, featuresmap, attributes, f)
-    #
-    #    outputFooter(f)
     mergePoints()
     mergeWayPoints()
     if options.maxNodesPerWay >= 2:
@@ -778,16 +684,6 @@ def outputSequential(osm):
     if options.maxNodesPerWay >= 2:
         splitLongWays(options.maxNodesPerWay, longWaysFromPolygons)
     translations.preOutputTransform(Geometry.geometries, Feature.features)
-
-    #nodes = [geom for geom in Geometry.geometries if type(geom) == Point]
-    #ways = [geom for geom in Geometry.geometries if type(geom) == Way]
-    #relations = [geom for geom in Geometry.geometries if type(geom) == Relation]
-    #featuresmap = {feature.geometry: feature for feature in Feature.features}
-
-    #attributes = getAttributes()
-    #outputNodes(nodes, featuresmap, attributes, files[0])
-    #outputWays(ways, featuresmap, attributes, files[1])
-    #outputRelations(relations, featuresmap, attributes, files[2])
 
     osm.output(Geometry.geometries, Feature.features)
 
