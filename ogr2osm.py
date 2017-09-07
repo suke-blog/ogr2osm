@@ -338,21 +338,6 @@ def getFileData(filename):
         return memoryDataSource
 
 
-osm_attributes = {}
-def getAttributes():
-    global osm_attributes
-
-    if len(osm_attributes) == 0:
-        # Build up a dict for optional settings
-        if options.addVersion:
-            osm_attributes.update({'version':'1'})
-
-        if options.addTimestamp:
-            osm_attributes.update({'timestamp':datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')})
-
-    return osm_attributes
-
-
 def parseData(dataSource, osm=None):
     l.debug("Parsing data")
     global translations
