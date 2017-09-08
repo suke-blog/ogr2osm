@@ -6,6 +6,7 @@ import sys
 import time
 from lxml import etree
 from geom import *
+from datetime import datetime
 
 
 class Osmxml(object):
@@ -28,9 +29,9 @@ class Osmxml(object):
 
         self.attributes = {}
         if osmVersion:
-            self.attributes.update({'version' : '0.6'})
+            self.attributes.update({'version' : '1'})
         if timestamp:
-            self.attributes.update({'timestamp' : int(time.mktime(time.localtime()))})
+            self.attributes.update({'timestamp' : datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')})
         self.isPython2 = sys.version_info < (3, 0)
         self.outputHeader()
 
