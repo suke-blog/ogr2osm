@@ -126,18 +126,24 @@ class Osmxml(object):
         node = self.fileNode
         way = self.fileWay
         relation = self.fileRelation
+        limit = 50000000
 
         self.outputFooter()
+        # merge separate files
         if self.sequentialOutputMode:
             way.seek(0)
-            relation.seek(0)
-            node.write(way.read())
-            node.write(relation.read())
-            node.close()
+            data = way.read(limit)
+            while data:
+                node.write(data)
+                data = way.read(limit)
             way.close()
+            relation.seek(0)
+            data = relation.read(limit)
+            while data:
+                node.write(data)
+                data = relation.read(limit)
             relation.close()
+            os.rename(self.filename + '_nodes', self.filename)
             os.remove(self.filename + '_ways')
             os.remove(self.filename + '_relations')
-            os.rename(self.filename + '_nodes', self.filename)
-        else:
-            node.close()
+        node.close()
