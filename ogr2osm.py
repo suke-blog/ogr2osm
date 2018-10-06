@@ -159,6 +159,9 @@ parser.add_option("--add-version", dest="addVersion", action="store_true",
 parser.add_option("--add-timestamp", dest="addTimestamp", action="store_true",
                     help=optparse.SUPPRESS_HELP)
 
+parser.add_option("--add-visible", dest="addVisible", action="store_true",
+                    help="Add visible attributes.")
+
 parser.add_option("--sql", dest="sqlQuery", type=str, default=None,
                      help="SQL query to execute on a PostgreSQL source")
 
@@ -687,7 +690,8 @@ osm = Osmxml(filename=options.outputFile,\
              osmVersion=options.addVersion,\
              timestamp=options.addTimestamp,\
              significantDigits=options.significantDigits,\
-             roundingDigits=options.roundingDigits)
+             roundingDigits=options.roundingDigits,\
+             addVisible=options.addVisible)
 parseData(data, osm)
 output(osm)
 osm.finish()
