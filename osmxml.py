@@ -67,7 +67,7 @@ class Osmxml(object):
     def outputWays(self, ways, featuresmap):
         f = self.fileWay
         for way in ways:
-            xmlattrs = {'visible': 'true', 'id': str(way.id)}
+            xmlattrs = {'id': str(way.id)}
             xmlattrs.update(self.attributes)
 
             xmlobject = etree.Element('way', xmlattrs)
@@ -89,7 +89,7 @@ class Osmxml(object):
     def outputRelations(self, relations, featuresmap):
         f = self.fileRelation
         for relation in relations:
-            xmlattrs = {'visible': 'true', 'id': str(relation.id)}
+            xmlattrs = {'id': str(relation.id)}
             xmlattrs.update(self.attributes)
 
             xmlobject = etree.Element('relation', xmlattrs)
