@@ -1,3 +1,4 @@
 [submodule "translations"]
 	path = translations
 	url = git://github.com/suke-blog/ogr2osm-translations.git
+	branch = develop
