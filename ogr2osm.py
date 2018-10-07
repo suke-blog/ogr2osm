@@ -45,9 +45,11 @@ Based very heavily on code released under the following terms:
 import sys
 import os
 import optparse
-import logging as l
+import logging
 import re
-l.basicConfig(level=l.DEBUG, format="%(message)s")
+
+logging.basicConfig(level=logging.DEBUG, format="%(message)s")
+l=logging.getLogger(__name__)
 
 from osgeo import ogr
 from osgeo import osr
@@ -157,6 +159,9 @@ parser.add_option("--add-version", dest="addVersion", action="store_true",
 parser.add_option("--add-timestamp", dest="addTimestamp", action="store_true",
                     help=optparse.SUPPRESS_HELP)
 
+parser.add_option("--add-visible", dest="addVisible", action="store_true",
+                    help="Add visible attributes.")
+
 parser.add_option("--sql", dest="sqlQuery", type=str, default=None,
                      help="SQL query to execute on a PostgreSQL source")
 
@@ -193,6 +198,9 @@ if options.addTimestamp:
 # if no output file given, use the basename of the source but with .osm
 source = args[0]
 sourceIsDatabase = bool(re.match('^PG:', source))
+
+if options.verbose == False:
+    l.setLevel(logging.INFO)
 
 if options.outputFile is not None:
     options.outputFile = os.path.realpath(options.outputFile)
@@ -682,7 +690,8 @@ osm = Osmxml(filename=options.outputFile,\
              osmVersion=options.addVersion,\
              timestamp=options.addTimestamp,\
              significantDigits=options.significantDigits,\
-             roundingDigits=options.roundingDigits)
+             roundingDigits=options.roundingDigits,\
+             addVisible=options.addVisible)
 parseData(data, osm)
 output(osm)
 osm.finish()

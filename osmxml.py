@@ -12,12 +12,13 @@ from datetime import datetime
 class Osmxml(object):
     def __init__(self, filename, sequentialOutputMode=False, \
                  noUploadFalse=True, osmVersion=False, timestamp=False,\
-                 significantDigits=9, roundingDigits=7):
+                 significantDigits=9, roundingDigits=7, addVisible=False):
         self.filename = filename
         self.sequentialOutputMode = sequentialOutputMode
         self.noUploadFalse = noUploadFalse
         self.significantDigits = significantDigits
         self.roundingDigits = roundingDigits
+        self.addVisible = addVisible
 
         if sequentialOutputMode:
             self.fileNode = open(filename + '_nodes', 'w')
@@ -32,6 +33,8 @@ class Osmxml(object):
             self.attributes.update({'version' : '1'})
         if timestamp:
             self.attributes.update({'timestamp' : datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')})
+        if addVisible:
+            self.attributes.update({'visible' : 'true'})
         self.isPython2 = sys.version_info < (3, 0)
         self.outputHeader()
 
@@ -45,7 +48,7 @@ class Osmxml(object):
     def outputNodes(self, nodes, featuresmap):
         f = self.fileNode
         for node in nodes:
-            xmlattrs = {'visible': 'true', 'id': str(node.id), 'lat': str(node.y * 10 ** -self.significantDigits),
+            xmlattrs = {'id': str(node.id), 'lat': str(node.y * 10 ** -self.significantDigits),
                         'lon': str(node.x * 10 ** -self.significantDigits)}
             xmlattrs.update(self.attributes)
 
@@ -64,7 +67,7 @@ class Osmxml(object):
     def outputWays(self, ways, featuresmap):
         f = self.fileWay
         for way in ways:
-            xmlattrs = {'visible': 'true', 'id': str(way.id)}
+            xmlattrs = {'id': str(way.id)}
             xmlattrs.update(self.attributes)
 
             xmlobject = etree.Element('way', xmlattrs)
@@ -86,7 +89,7 @@ class Osmxml(object):
     def outputRelations(self, relations, featuresmap):
         f = self.fileRelation
         for relation in relations:
-            xmlattrs = {'visible': 'true', 'id': str(relation.id)}
+            xmlattrs = {'id': str(relation.id)}
             xmlattrs.update(self.attributes)
 
             xmlobject = etree.Element('relation', xmlattrs)
